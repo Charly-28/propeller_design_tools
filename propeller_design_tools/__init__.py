@@ -1,1 +1,1 @@
-from propeller_design_tools.funcs import test_func
+from funcs import test_func
