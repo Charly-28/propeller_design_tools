@@ -1,4 +1,4 @@
 import propeller_design_tools as pdt
 
 
-pdt.test_func('asdf')
+print(pdt.standard_atmosphere(altitude_km=0))
