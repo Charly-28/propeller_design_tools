@@ -4,17 +4,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 # import shutil
 from propeller_design_tools.user_io import Warning, Info, Error
+from propeller_design_tools.user_settings import _get_user_settings
 
 
 # =============== CONVENIENCE / UTILITY FUNCTIONS ===============
-def get_airfoil_db_folder():
-    return os.path.join(os.getcwd(), 'airfoil_database')
-
-
-def get_prop_db_folder():
-    return os.path.join(os.getcwd(), 'propeller_database')
-
-
 def delete_propeller(prop, verbose: bool = True):
     fpaths = [prop.xrr_file, prop.xrop_file, prop.meta_file]
     rmvd = []
@@ -36,11 +29,11 @@ def clear_foil_database(inside_root_db: bool = False, inside_polar_db: bool = Tr
     :return:
     """
     if inside_root_db:
-        delete_files_from_folder(get_airfoil_db_folder())
+        delete_files_from_folder(_get_user_settings()['airfoil_database'])
     if inside_polar_db:
-        delete_files_from_folder(os.path.join(get_airfoil_db_folder(), 'polar_database'))
+        delete_files_from_folder(os.path.join(_get_user_settings()['airfoil_database'], 'polar_database'))
     if inside_for_xfoil:
-        delete_files_from_folder(os.path.join(get_airfoil_db_folder(), 'for_xfoil'))
+        delete_files_from_folder(os.path.join(_get_user_settings()['airfoil_database'], 'for_xfoil'))
 
 
 def clear_prop_database(inside_root_db: bool = True, inside_xrotor_files: bool = True, inside_op_files: bool = True):
@@ -53,11 +46,11 @@ def clear_prop_database(inside_root_db: bool = True, inside_xrotor_files: bool =
     :return:
     """
     if inside_root_db:
-        delete_files_from_folder(get_prop_db_folder())
+        delete_files_from_folder(_get_user_settings()['propeller_database'])
     if inside_xrotor_files:
-        delete_files_from_folder(os.path.join(get_prop_db_folder(), 'xrotor_geometry_files'))
+        delete_files_from_folder(os.path.join(_get_user_settings()['propeller_database'], 'xrotor_geometry_files'))
     if inside_op_files:
-        delete_files_from_folder(os.path.join(get_prop_db_folder(), 'xrotor_op_files'))
+        delete_files_from_folder(os.path.join(_get_user_settings()['propeller_database'], 'xrotor_op_files'))
 
 
 def delete_files_from_folder(folder: str):
@@ -101,6 +94,36 @@ def search_files(folder: str, search_strs: list = None, contains_any: bool = Fal
             files = [f for f in files if all([s in f for s in search_strs])]
 
     return files
+
+
+def get_airfoil_file_from_db(foil_name: str, exact_namematch: bool = False):
+    db_dir = _get_user_settings()['airfoil_database']
+    possible_files = search_files(folder=db_dir, search_strs=[foil_name])
+    exact_fname = '{}.dat'.format(foil_name)
+
+    if len(possible_files) == 1:
+        if not exact_namematch:
+            return possible_files[0]
+        else:   # must match exactly
+            if possible_files[0] == exact_fname:
+                return possible_files[0]
+            else:
+                raise Error('Did not find an exact match for "{}"'.format(exact_fname))
+
+    elif len(possible_files) == 0:
+        raise Error('Did not find any coordinate files containing name "{}" when looking in user-set airfoil '
+                    'database: {}'.format(foil_name, db_dir))
+
+    else:   # found multiple files
+        if not exact_namematch:
+            raise Error('Found multiple coordinate files looking for airfoil "{}"!\n{}\n'
+                        'Consider using kwarg exact_namematch=True'.format(foil_name, possible_files))
+        else:
+            possible_files = [f for f in possible_files if f == exact_fname]
+            if len(possible_files) == 0:
+                raise Error('Did not find any coordinate files exactly matching "{}"'.format(exact_fname))
+            else:
+                return possible_files[0]
 
 
 def merge_polar_data_dicts(new: dict, old: dict):
@@ -225,7 +248,7 @@ def read_airfoil_coordinate_file(fpath: str, verbose: bool = True):
             yc -= dy
             lower_coords[i] = [xc, yc]
         if verbose:
-            Info('Detected airfoil ({}) with TE thinner than hardcoded limit -> artificially adjusted TE gap to {} '
+            Info('Detected airfoil ({}) with TE thinner than hardcoded limit\n-> artificially adjusted TE gap to {} '
                      '(normalized)'.format(name, te_gap_lim))
 
     # re-combine upper and lower coords and split back into x, y arrays
@@ -238,9 +261,9 @@ def read_airfoil_coordinate_file(fpath: str, verbose: bool = True):
     return name, np.array(x_coords), np.array(y_coords)
 
 
-def run_xfoil(foil_fpath: str, re: float, alpha: list = None, cl: list = None, iter_limit: int = 40, ncrit: int = 9,
+def run_xfoil(foil_relpath: str, re: float, alpha: list = None, cl: list = None, iter_limit: int = 40, ncrit: int = 9,
               mach: float = 0.0, output_fpath: str = None, keypress_iternum: int = 1, tmout: int = 12,
-              hide_windows: bool = True):
+              hide_windows: bool = True, verbose: bool = False):
     if not output_fpath:
         output_fpath = 'polar_output.txt'
 
@@ -256,16 +279,17 @@ def run_xfoil(foil_fpath: str, re: float, alpha: list = None, cl: list = None, i
         print('Error: must give "run_xfoil" either a list of "alpha" to sweep or a list of "cl" to sweep')
         return
 
-    # re-organize swept_param for better convergence behavior
-    # or dont
+    # sort the swept values
     vals = list(sorted(list(swept_param.values())[0]))
-    # mid_idx = int(len(vals) / 2)
-    # vals = np.append(vals[mid_idx:], list(reversed(vals[0:mid_idx])))
 
-    xfoil_cmnd_file = 'xfoil_inputs_temp.txt'
+    # directory and temp command file, also xfoil path
+    xfoil_dir = _get_user_settings()['airfoil_database']
+    xfoil_cmnd_file = os.path.join(xfoil_dir, 'xfoil_inputs_temp.txt')
+    xfoil_fpath = os.path.join(xfoil_dir, 'xfoil.exe')
+
+    # write the command file
     with open(xfoil_cmnd_file, 'w') as f:
-        f.write('load\n')
-        f.write('{}\n'.format(foil_fpath))
+        f.write('load {}\n'.format(foil_relpath))
         f.write('ppar\nN\n200\n\n\n')
         f.write('oper\n')
         f.write('visc\n')
@@ -287,19 +311,28 @@ def run_xfoil(foil_fpath: str, re: float, alpha: list = None, cl: list = None, i
         f.write('{}\n\n\n'.format(output_fpath))
         f.write('quit\n')
 
+    # now open it again and send it as the xfoil commands
     with open(xfoil_cmnd_file, 'r') as f:
         sui = subprocess.STARTUPINFO()
         if hide_windows:
             sui.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-        subprocess.run(['xfoil.exe'], startupinfo=sui, stdin=f,
-                       stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT, timeout=tmout)
+
+        if verbose:
+            out, err = None, None
+        else:
+            out, err = subprocess.DEVNULL, subprocess.DEVNULL
+
+        subprocess.run([xfoil_fpath], startupinfo=sui, stdin=f, stdout=out, stderr=err,
+                       timeout=tmout, cwd=xfoil_dir)
+
+    # delete the temp command file
     os.remove(xfoil_cmnd_file)
 
 
 def read_xfoil_pacc_file(fpath: str = None, delete_after: bool = False):
     # if not given, default fpath is this
     if not fpath:
-        fpath = 'polar_output.txt'
+        fpath = os.path.join(_get_user_settings()['airfoil_database'], 'polar_output.txt')
 
     # open fpath and read in all text
     with open(fpath, 'r') as f:
@@ -501,7 +534,7 @@ def calc_re(rho: float = None, vel: float = None, chord: float = None, mu: float
     return re
 
 
-# def create_radial_stations(prop, plot_also: bool = True, suppress_output: bool = False):
+# def create_radial_stations(prop, plot_also: bool = True, verbose: bool = False):
 #     # get density for Re estimates
 #     if prop.design_atmo_props['altitude'] == -1:
 #         rho, nu = 1000, 0.1150e-5
@@ -517,7 +550,7 @@ def calc_re(rho: float = None, vel: float = None, chord: float = None, mu: float
 #     t = ''
 #     stations = []
 #     for idx, xi in enumerate(prop.station_params):  # append station text all together and save
-#         if not suppress_output:
+#         if not verbose:
 #             PDT_Info('Auto-generating section inputs from airfoil database data for section {} ({})...'.
 #                      format(idx + 1, prop.station_params[xi]))
 #         fn = prop.station_params[xi]
@@ -534,7 +567,7 @@ def calc_re(rho: float = None, vel: float = None, chord: float = None, mu: float
 #                      design_speed: float, design_cl: dict, design_atmo_props: dict, design_vorform: str,
 #                      station_params: dict = None, design_adv: float = None, design_rpm: float = None,
 #                      design_thrust: float = None, design_power: float = None, n_radial: int = 50,
-#                      suppress_output: bool = False, show_station_fit_plots: bool = True, plot_after: bool = True,
+#                      verbose: bool = False, show_station_fit_plots: bool = True, plot_after: bool = True,
 #                      tmout: int = 20, hide_windows: bool = True, geo_params: dict = {}):
 #     # name must be less than 38? characters for XROTOR to be able to save it
 #     if len(name) > 38:
@@ -561,7 +594,7 @@ def calc_re(rho: float = None, vel: float = None, chord: float = None, mu: float
 #                          design_atmo_props=design_atmo_props, design_vorform=design_vorform, design_adv=design_adv,
 #                          station_params=station_params, geo_params=geo_params, design_rpm=design_rpm,
 #                          design_thrust=design_thrust, design_power=design_power)
-#     st_txt = prop.set_stations(plot_also=show_station_fit_plots, suppress_output=suppress_output)
+#     st_txt = prop.set_stations(plot_also=show_station_fit_plots, verbose=verbose)
 #
 #     # prep XROTOR commands depending on what station_params were input
 #     aero_params_fname = '{}_temp_section_params.txt'.format(name)
@@ -662,7 +695,7 @@ def calc_re(rho: float = None, vel: float = None, chord: float = None, mu: float
 #         sui = subprocess.STARTUPINFO()
 #         if hide_windows:
 #             sui.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-#         if not suppress_output:
+#         if not verbose:
 #             PDT_Info('Running XROTOR to create new geometry...')
 #         subprocess.run(['xrotor.exe'], startupinfo=sui, stdin=f, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT,
 #                        timeout=tmout)
@@ -691,7 +724,7 @@ def calc_re(rho: float = None, vel: float = None, chord: float = None, mu: float
 #     prop.save_meta_file()
 #     prop.load_from_savefile()   # reads meta, xrr, xrop, and point clouds
 #
-#     if not suppress_output:
+#     if not verbose:
 #         PDT_Info('"{}" Geometry Created!'.format(prop.name))
 #     if plot_after:
 #         prop.plot_geometry()

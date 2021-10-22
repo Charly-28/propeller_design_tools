@@ -3,8 +3,10 @@ def Warning(s: str):
     print('PDT WARNING: {}'.format(s))
 
 
-def Info(s: str):
-    print('PDT INFO: {}'.format(s))
+def Info(s: str, indent_level: int = 0):
+    ind_txt = '    ' * indent_level
+    offset_spaces = '          '
+    print('PDT INFO: {}{}'.format(ind_txt, s.replace('\n', '\n{}{}'.format(offset_spaces, ind_txt))))
 
 
 def error_plot(**kwargs):
@@ -80,4 +82,4 @@ class Error(Exception):
     def __init__(self, s: str, errplot: bool = False, **errplot_kwargs):
         if errplot:
             error_plot(**errplot_kwargs)
-        super().__init__('\nPDT ERROR: {}'.format(s))
+        super().__init__('\nPDT ERROR: {}'.format(s.replace('\n', '\n           ')))
