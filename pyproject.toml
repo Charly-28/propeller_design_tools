@@ -1,7 +1,5 @@
 [build-system]
 requires = [
-    "setuptools>=42",
-    "wheel",
     "numpy>=1.21.2",
     "matplotlib>=3.4.3",
     "scipy>=1.7.1",
