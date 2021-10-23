@@ -674,14 +674,10 @@ def create_propeller(name: str, nblades: int, radius: float, hub_radius: float, 
         blade_txt += 'o\n{}\nw\n{}\n'.format(key, fname)
 
     # prep XROTOR commands to save the solved operating point params
-    # op_fpath = os.path.join(get_prop_db(), '{}\\{}.xrop'.format(name, name))
-    # op_fpath = '{}\\{}.xrop'.format(name, name)
     op_fpath = '{}.xrop'.format(name)
     save_op_txt = 'oper\nwrit\n{}\n'.format(op_fpath)
 
     # prep XROTOR commands for savename
-    # savename = os.path.join(get_prop_db(), '{}\\{}.xrr'.format(name, name))
-    # savename = '{}\\{}.xrr'.format(name, name)
     savename = '{}.xrr'.format(name)
     save_txt = 'save {}\nquit\n'.format(savename)
 
