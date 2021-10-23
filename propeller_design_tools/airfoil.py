@@ -1,4 +1,5 @@
 import os
+import warnings
 from propeller_design_tools import funcs
 from propeller_design_tools.user_io import Error, Info
 from propeller_design_tools.user_settings import _get_user_settings
@@ -388,7 +389,6 @@ class Airfoil(object):
     def get_keys_2_interpolate(self):
         k = self.get_valid_xfoil_params()
         k.pop(k.index('CL/CD'))
-        # k.pop(k.index('alpha'))
         return k
 
     def rectify_polar_grids(self, **kwargs):
@@ -414,7 +414,9 @@ class Airfoil(object):
             for key in keys2rect:
                 ydata = pol[key]
                 pol_interpolator = interp1d(x=pol['alpha'], y=ydata, kind=interp_kind, fill_value='extrapolate')
-                pol[key] = pol_interpolator(alpha_rect)
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore")
+                    pol[key] = pol_interpolator(alpha_rect)
 
             pol['alpha'] = alpha_rect
 
@@ -439,7 +441,7 @@ class Airfoil(object):
         if (re, mach, ncrit) in self.polar_data:
             return self.polar_data[(re, mach, ncrit)].copy()
 
-        # rectify polar grids
+        # rectify polar grids <-- what does this do again???
         self.rectify_polar_grids(interp_kind='linear')
 
         # get all the keys to interpolate, will interpolate across 2D planes of x=alpha, y=key
@@ -478,7 +480,7 @@ class Airfoil(object):
                 xi = np.hstack([re_interp, alpha_interp])
                 pol_interp[key] = griddata(points=points, values=values, xi=xi, **griddata_kwargs)
 
-        elif len(list(set(machs))) == 1:    # so there's data across re and ncrit
+        elif len(machs) == 1:    # so there's data across re and ncrit but only 1 mach
             points = np.full(shape=(len(alphas), 3), fill_value=np.nan)
             points[:, 0] = np.array(re_pts)
             points[:, 1] = np.array(ncrit_pts)
@@ -496,6 +498,44 @@ class Airfoil(object):
                 xi = np.hstack([re_interp, ncrit_interp, alpha_interp])
                 pol_interp[key] = griddata(points=points, values=values, xi=xi, **griddata_kwargs)
 
+        elif len(ncrits) == 1:    # there's data across re and machs but only 1 ncrit
+            points = np.full(shape=(len(alphas), 3), fill_value=np.nan)
+            points[:, 0] = np.array(re_pts)
+            points[:, 1] = np.array(mach_pts)
+            points[:, -1] = alphas
+
+            pol_interp['re'] = re
+            pol_interp['mach'] = mach
+            pol_interp['ncrit'] = ncrits[0]
+
+            for key in keys2interp:
+                values = flat_vals[key]
+                re_interp = np.ones(shape=(len(alpha_interp), 1)) * re
+                mach_interp = np.ones(shape=(len(alpha_interp), 1)) * mach
+                alpha_interp = np.reshape(alpha_interp, (len(alpha_interp), 1))
+                xi = np.hstack([re_interp, mach_interp, alpha_interp])
+                pol_interp[key] = griddata(points=points, values=values, xi=xi, **griddata_kwargs)
+
+        elif len(res) > 1 and len(machs) > 1 and len(ncrits) > 1:   # there's data across all of res, machs, and ncrits
+            points = np.full(shape=(len(alphas), 4), fill_value=np.nan)
+            points[:, 0] = np.array(re_pts)
+            points[:, 1] = np.array(mach_pts)
+            points[:, 2] = np.array(ncrit_pts)
+            points[:, -1] = alphas
+
+            pol_interp['re'] = re
+            pol_interp['mach'] = mach
+            pol_interp['ncrit'] = ncrit
+
+            for key in keys2interp:
+                values = flat_vals[key]
+                re_interp = np.ones(shape=(len(alpha_interp), 1)) * re
+                mach_interp = np.ones(shape=(len(alpha_interp), 1)) * mach
+                ncrit_interp = np.ones(shape=(len(alpha_interp), 1)) * ncrit
+                alpha_interp = np.reshape(alpha_interp, (len(alpha_interp), 1))
+                xi = np.hstack([re_interp, mach_interp, ncrit_interp, alpha_interp])
+                pol_interp[key] = griddata(points=points, values=values, xi=xi, **griddata_kwargs)
+
         scrubbed_pol = funcs.scrub_nans(d=pol_interp)
         return scrubbed_pol
 
@@ -505,9 +545,10 @@ class Airfoil(object):
             self.polar_data = funcs.read_polar_data_file(fpath=savepath)
             re, mach, ncrit = self.get_polar_data_grid()
             if verbose:
-                Info('Loaded existing polar data for "{}":\nRe={}'.format(self.name, re))
+                Info('Loaded existing polar data for "{}":'.format(self.name))
+                Info('Re={}\nMach={}\nNcrit={}'.format(re, mach, ncrit), indent_level=1)
         else:
-            raise FileNotFoundError('Could not find file: {}'.format(savepath))
+            raise Error('Could not find polar data file: {}'.format(savepath))
 
     def get_coords(self, n_interp: int = None):
         if n_interp is None:
