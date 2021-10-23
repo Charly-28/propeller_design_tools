@@ -1,10 +1,13 @@
 import os
 import subprocess
+import shutil
 import matplotlib.pyplot as plt
 import numpy as np
-# import shutil
-from propeller_design_tools.user_io import Warning, Info, Error
-from propeller_design_tools.user_settings import _get_user_settings
+from propeller_design_tools.airfoil import Airfoil
+from propeller_design_tools.radialstation import RadialStation
+from propeller_design_tools.propeller import Propeller
+from propeller_design_tools.user_io import Info, Error
+from propeller_design_tools.user_settings import _get_user_settings, get_prop_db
 
 
 # =============== CONVENIENCE / UTILITY FUNCTIONS ===============
@@ -534,202 +537,210 @@ def calc_re(rho: float = None, vel: float = None, chord: float = None, mu: float
     return re
 
 
-# def create_radial_stations(prop, plot_also: bool = True, verbose: bool = False):
-#     # get density for Re estimates
-#     if prop.design_atmo_props['altitude'] == -1:
-#         rho, nu = 1000, 0.1150e-5
-#         mu = nu * rho
-#     else:
-#         _, _, rho, _, mu = standard_atmosphere(prop.design_atmo_props['altitude'])  # temp, p, rho, sonic_a, mu
-#         nu = mu / rho
-#
-#     # replace it if it was entered as atmo prop as well
-#     if 'dens' in prop.design_atmo_props:
-#         rho = prop.design_atmo_props['dens']
-#
-#     t = ''
-#     stations = []
-#     for idx, xi in enumerate(prop.station_params):  # append station text all together and save
-#         if not verbose:
-#             PDT_Info('Auto-generating section inputs from airfoil database data for section {} ({})...'.
-#                      format(idx + 1, prop.station_params[xi]))
-#         fn = prop.station_params[xi]
-#         foil = PDT.Airfoil(name=fn)
-#         re_est = int(calc_re(rho=rho, rpm=prop.design_rpm, radius=prop.radius * xi, chord=prop.radius / 10, mu=mu))
-#         st = PDT.RadialStation(station_idx=idx, Xisection=xi, foil=foil, re_estimate=re_est,
-#                                plot=plot_also)
-#         t += st.generate_txt_params()
-#         stations.append(st)
-#     return stations, t
+def create_radial_stations(prop: Propeller, plot_also: bool = True, verbose: bool = False):
+    # get density for Re estimates
+    if prop.design_atmo_props['altitude'] == -1:
+        rho, nu = 1000, 0.1150e-5
+        mu = nu * rho
+    else:
+        atmo = standard_atmosphere(prop.design_atmo_props['altitude'])# temp, p, rho, sonic_a, mu
+        mu, rho = atmo['mu'], atmo['rho']
+        nu = mu / rho
+
+    # replace it if it was entered as atmo prop as well
+    if 'dens' in prop.design_atmo_props:
+        rho = prop.design_atmo_props['dens']
+
+    t = ''
+    stations = []
+    for idx, xi in enumerate(prop.station_params):  # append station text all together and save
+        if verbose:
+            Info('Auto-generating section inputs from airfoil database data for section {} ({})...'.
+                  format(idx + 1, prop.station_params[xi]))
+        fn = prop.station_params[xi]
+        foil = Airfoil(name=fn)
+        re_est = int(calc_re(rho=rho, rpm=prop.design_rpm, radius=prop.radius * xi, chord=prop.radius / 10, mu=mu))
+        st = RadialStation(station_idx=idx, Xisection=xi, foil=foil, re_estimate=re_est, plot=plot_also)
+        t += st.generate_txt_params()
+        stations.append(st)
+    return stations, t
 
 
-# def create_propeller(name: str, nblades: int, radius: float, hub_radius: float, hub_wake_disp_br: float,
-#                      design_speed: float, design_cl: dict, design_atmo_props: dict, design_vorform: str,
-#                      station_params: dict = None, design_adv: float = None, design_rpm: float = None,
-#                      design_thrust: float = None, design_power: float = None, n_radial: int = 50,
-#                      verbose: bool = False, show_station_fit_plots: bool = True, plot_after: bool = True,
-#                      tmout: int = 20, hide_windows: bool = True, geo_params: dict = {}):
-#     # name must be less than 38? characters for XROTOR to be able to save it
-#     if len(name) > 38:
-#         PDT_Error(ValueError, '"name" must be less than 38 characters when creating a propeller, "{}" is too long'
-#                   .format(name))
-#
-#     # must input an altitude in atmo props
-#     if 'altitude' not in design_atmo_props:
-#         PDT_Error(ValueError, 'You must include "altitude" as an input to create_propeller()')
-#
-#     # delete if exists already, make save folder, point-cloud folder
-#     save_folder = os.path.join(get_prop_db_folder(), name)
-#     if os.path.exists(save_folder):
-#         shutil.rmtree(save_folder)
-#     os.mkdir(save_folder)
-#
-#     # make a folder for all the profile x, y, z listings
-#     prof_folder = os.path.join(save_folder, 'blade_profiles')
-#     os.mkdir(prof_folder)
-#
-#     # create the Propeller object, create the stations
-#     prop = PDT.Propeller(name=name, nblades=nblades, radius=radius, hub_radius=hub_radius,
-#                          hub_wake_disp_br=hub_wake_disp_br, design_speed=design_speed, design_cl=design_cl,
-#                          design_atmo_props=design_atmo_props, design_vorform=design_vorform, design_adv=design_adv,
-#                          station_params=station_params, geo_params=geo_params, design_rpm=design_rpm,
-#                          design_thrust=design_thrust, design_power=design_power)
-#     st_txt = prop.set_stations(plot_also=show_station_fit_plots, verbose=verbose)
-#
-#     # prep XROTOR commands depending on what station_params were input
-#     aero_params_fname = '{}_temp_section_params.txt'.format(name)
-#     with open(aero_params_fname, 'w') as f:
-#         f.write(st_txt)
-#
-#     # prep XROTOR commands depending on what design_atmo_props were given
-#     alt = design_atmo_props['altitude']
-#     atmo_txt = '{}\n\n'.format(alt)
-#
-#     if 'vsou' in design_atmo_props:
-#         vsou = design_atmo_props['vsou']
-#         atmo_txt += 'vsou\n{}\n'.format(vsou)
-#     if 'dens' in design_atmo_props:
-#         dens = design_atmo_props['dens']
-#         atmo_txt += 'dens\n{}\n'.format(dens)
-#     if 'visc' in design_atmo_props:
-#         visc = design_atmo_props['visc']
-#         atmo_txt += 'visc\n{}\n'.format(visc)
-#     atmo_txt += 'desi'
-#
-#     # prep XROTOR commands depending on what vortex formulation is given
-#     if design_vorform is None:
-#         vorform_txt = 'pot\n'
-#     elif any([design_vorform.lower() == i for i in ['grad', 'pot', 'vrtx']]):
-#         vorform_txt = '{}\n'.format(design_vorform.lower())
-#
-#     # prep XROTOR commands for the advance ratio OR RPM design specification
-#     if design_adv is not None:
-#         if design_rpm is not None:
-#             PDT_Error(ValueError, 'Cannot specify both "design_adv" and "design_rpm", must pick one or the other')
-#         adv_rpm_txt = '{}'.format(design_adv)
-#     elif design_rpm is not None:
-#         if design_adv is not None:
-#             PDT_Error(ValueError, 'Cannot specify both "design_adv" and "design_rpm", must pick one or the other')
-#         adv_rpm_txt = '{}\n{}'.format(0, design_rpm)
-#
-#     # prep XROTOR commands for the thrust OR power design specification
-#     if design_thrust is not None:
-#         thr_pow_txt = '{}'.format(design_thrust)
-#     elif design_power is not None:
-#         thr_pow_txt = '{}\n{}'.format(0, design_power)
-#
-#     # prep XROTOR commands depending on what design_cl keys were given
-#     if len(design_cl) == 1:  # either a constant value was given, or a filepath
-#         if 'const' in design_cl:
-#             const_cl = design_cl['const']
-#             cl_txt = 'cc\n{}\n\n'.format(const_cl)
-#         elif 'file' in design_cl:
-#             fpath = design_cl['file']
-#             cl_txt = 'cr\n{}\n\n'.format(fpath)
-#         else:
-#             PDT_Error(ValueError, 'Must give either a "const" CL target (constant), a "root" and "tip" CL target '
-#                                   '(linearly varied), or specify a CL(r/R) .txt file')
-#     elif len(design_cl) == 2:  # a linear cl was given
-#         if all([k in design_cl for k in ['root', 'tip']]):
-#             root_cl = design_cl['root']
-#             tip_cl = design_cl['tip']
-#             cl_txt = 'cl\n{}\n{}\n\n'.format(root_cl, tip_cl)
-#         else:
-#             PDT_Error(ValueError, 'If only 2 keywords are given in "design_cl", they must be "root" and "tip"')
-#     else:
-#         PDT_Error(ValueError,
-#                   '"design_cl" input dictionary error, either too many or not enough keys (if a single key'
-#                   'is given, it must be either "const" or "file", if 2 keys are given they must be "root" '
-#                   'and "tip"')
-#
-#     # prep XROTOR commands for saving blade data r/R
-#     blade_data_keys = ['CH', 'BE', 'GAM', 'CL', 'CD', 'RE', 'EFP', 'Ub', 'VA', 'VT', 'VD', 'VA/V', 'VT/V', 'VD/V',
-#                        'VAslip', 'VTslip', 'Aslip', 'Ti', 'Pi', 'Tv', 'Pv', 'Ttot', 'Ptot', 'Xw', 'Vw', 'Tw', 'Pw']
-#     blade_data = {}
-#     blade_txt = 'plot\n12\n'
-#     for key in blade_data_keys:
-#         fname = '{}_out.txt'.format(key.replace('/', '_over_'))
-#         blade_data[key] = None
-#         blade_txt += 'o\n{}\nw\n{}\n'.format(key, fname)
-#
-#     # prep XROTOR commands to save the solved operating point params
-#     op_fpath = os.path.join('propeller_database', '{}\\{}.xrop'.format(name, name))
-#     save_op_txt = 'oper\nwrit\n{}\n'.format(op_fpath)
-#
-#     # prep XROTOR commands for savename
-#     savename = os.path.join('propeller_database', '{}\\{}.xrr'.format(name, name))
-#     save_txt = 'save {}\nquit\n'.format(savename)
-#
-#     # write XROTOR commands to a file and run in a subprocess
-#     xrotor_cmnd_file = 'xrotor_inputs_temp.txt'
-#     cmnds = ['aero', 'read', '{}\n'.format(aero_params_fname),
-#              'desi', 'atmo', '{}'.format(atmo_txt), 'form', '{}'.format(vorform_txt), 'N', '{}'.format(n_radial),
-#              'inpu', '{}'.format(nblades),
-#              '{}'.format(radius), '{}'.format(hub_radius), '{}'.format(hub_wake_disp_br), '{}'.format(design_speed),
-#              '{}'.format(adv_rpm_txt), '{}'.format(thr_pow_txt), '0', '{}'.format(cl_txt), '{}'.format(blade_txt), '\n',
-#              '{}'.format(save_op_txt), '\n\n', '{}'.format(save_txt)]
-#
-#     with open(xrotor_cmnd_file, 'w') as f:
-#         f.write('\n'.join(cmnds))
-#     with open(xrotor_cmnd_file, 'r') as f:
-#         sui = subprocess.STARTUPINFO()
-#         if hide_windows:
-#             sui.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-#         if not verbose:
-#             PDT_Info('Running XROTOR to create new geometry...')
-#         subprocess.run(['xrotor.exe'], startupinfo=sui, stdin=f, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT,
-#                        timeout=tmout)
-#     os.remove(xrotor_cmnd_file)
-#     os.remove(aero_params_fname)
-#
-#     # set the prop's blade-data that we just saved in creation
-#     for key in blade_data.copy():
-#         roR, array = read_2col_file(fpath='{}_out.txt'.format(key.replace('/', '_over_')))
-#         if 'r/R' not in blade_data:
-#             blade_data['r/R'] = roR
-#         blade_data[key] = array
-#     prop.set_blade_data(blade_dict=blade_data)
-#
-#     # interpolate the profiles as part of geometry creation
-#     if 'n_prof_pts' not in geo_params:
-#         geo_params['n_prof_pts'] = None
-#     if 'n_profs' not in geo_params:
-#         geo_params['n_profs'] = 50
-#     if 'tot_skew' not in geo_params:
-#         geo_params['tot_skew'] = 0.0
-#
-#     prop.interp_foil_profiles(**geo_params)  # also saves the profiles
-#
-#     # save the PDT propeller meta-file, and then read in the operating point dictionary by calling load_from_savefile()
-#     prop.save_meta_file()
-#     prop.load_from_savefile()   # reads meta, xrr, xrop, and point clouds
-#
-#     if not verbose:
-#         PDT_Info('"{}" Geometry Created!'.format(prop.name))
-#     if plot_after:
-#         prop.plot_geometry()
-#
-#     return prop
+def create_propeller(name: str, nblades: int, radius: float, hub_radius: float, hub_wake_disp_br: float,
+                     design_speed: float, design_cl: dict, design_atmo_props: dict, design_vorform: str,
+                     station_params: dict = None, design_adv: float = None, design_rpm: float = None,
+                     design_thrust: float = None, design_power: float = None, n_radial: int = 50,
+                     verbose: bool = False, show_station_fit_plots: bool = True, plot_after: bool = True,
+                     tmout: int = 20, hide_windows: bool = True, geo_params: dict = {}):
+    # name must be less than 38? characters for XROTOR to be able to save it
+    if len(name) > 38:
+        raise Error('"name" must be less than 38 characters when creating a propeller, "{}" is too long'.format(name))
+
+    # must input an altitude in atmo props
+    if 'altitude' not in design_atmo_props:
+        raise Error('You must include "altitude" as an input to create_propeller()')
+
+    # delete if exists already, make save folder, point-cloud folder
+    save_folder = os.path.join(get_prop_db(), name)
+    if os.path.exists(save_folder):
+        shutil.rmtree(save_folder)
+    os.mkdir(save_folder)
+
+    # make a folder for all the profile x, y, z listings
+    prof_folder = os.path.join(save_folder, 'blade_profiles')
+    os.mkdir(prof_folder)
+
+    # create the Propeller object, create the stations
+    prop = Propeller(name=name, nblades=nblades, radius=radius, hub_radius=hub_radius,
+                     hub_wake_disp_br=hub_wake_disp_br, design_speed=design_speed, design_cl=design_cl,
+                     design_atmo_props=design_atmo_props, design_vorform=design_vorform, design_adv=design_adv,
+                     station_params=station_params, geo_params=geo_params, design_rpm=design_rpm,
+                     design_thrust=design_thrust, design_power=design_power)
+    st_txt = prop.set_stations(plot_also=show_station_fit_plots, verbose=verbose)
+
+    # prep XROTOR commands depending on what station_params were input
+    aero_params_fname = os.path.join(get_prop_db(), '{}_temp_section_params.txt'.format(name))
+    with open(aero_params_fname, 'w') as f:
+        f.write(st_txt)
+
+    # prep XROTOR commands depending on what design_atmo_props were given
+    alt = design_atmo_props['altitude']
+    atmo_txt = '{}\n\n'.format(alt)
+
+    if 'vsou' in design_atmo_props:
+        vsou = design_atmo_props['vsou']
+        atmo_txt += 'vsou\n{}\n'.format(vsou)
+    if 'dens' in design_atmo_props:
+        dens = design_atmo_props['dens']
+        atmo_txt += 'dens\n{}\n'.format(dens)
+    if 'visc' in design_atmo_props:
+        visc = design_atmo_props['visc']
+        atmo_txt += 'visc\n{}\n'.format(visc)
+    atmo_txt += 'desi'
+
+    # prep XROTOR commands depending on what vortex formulation is given
+    if design_vorform is None:
+        vorform_txt = 'pot\n'
+    elif any([design_vorform.lower() == i for i in ['grad', 'pot', 'vrtx']]):
+        vorform_txt = '{}\n'.format(design_vorform.lower())
+
+    # prep XROTOR commands for the advance ratio OR RPM design specification
+    if design_adv is not None:
+        if design_rpm is not None:
+            raise Error('Cannot specify both "design_adv" and "design_rpm", must pick one or the other')
+        adv_rpm_txt = '{}'.format(design_adv)
+    elif design_rpm is not None:
+        if design_adv is not None:
+            raise Error('Cannot specify both "design_adv" and "design_rpm", must pick one or the other')
+        adv_rpm_txt = '{}\n{}'.format(0, design_rpm)
+
+    # prep XROTOR commands for the thrust OR power design specification
+    if design_thrust is not None:
+        thr_pow_txt = '{}'.format(design_thrust)
+    elif design_power is not None:
+        thr_pow_txt = '{}\n{}'.format(0, design_power)
+
+    # prep XROTOR commands depending on what design_cl keys were given
+    if len(design_cl) == 1:  # either a constant value was given, or a filepath
+        if 'const' in design_cl:
+            const_cl = design_cl['const']
+            cl_txt = 'cc\n{}\n\n'.format(const_cl)
+        elif 'file' in design_cl:
+            fpath = design_cl['file']
+            cl_txt = 'cr\n{}\n\n'.format(fpath)
+        else:
+            raise Error('Must give either a "const" CL target (constant), a "root" and "tip" CL target '
+                        '(linearly varied), or specify a CL(r/R) .txt file')
+    elif len(design_cl) == 2:  # a linear cl was given
+        if all([k in design_cl for k in ['root', 'tip']]):
+            root_cl = design_cl['root']
+            tip_cl = design_cl['tip']
+            cl_txt = 'cl\n{}\n{}\n\n'.format(root_cl, tip_cl)
+        else:
+            raise Error('If only 2 keywords are given in "design_cl", they must be "root" and "tip"')
+    else:
+        raise Error('"design_cl" input dictionary error, either too many or not enough keys (if a single key'
+                    'is given, it must be either "const" or "file", if 2 keys are given they must be "root" '
+                    'and "tip"')
+
+    # prep XROTOR commands for saving blade data r/R
+    blade_data_keys = ['CH', 'BE', 'GAM', 'CL', 'CD', 'RE', 'EFP', 'Ub', 'VA', 'VT', 'VD', 'VA/V', 'VT/V', 'VD/V',
+                       'VAslip', 'VTslip', 'Aslip', 'Ti', 'Pi', 'Tv', 'Pv', 'Ttot', 'Ptot', 'Xw', 'Vw', 'Tw', 'Pw']
+    blade_data = {}
+    blade_txt = 'plot\n12\n'
+    for key in blade_data_keys:
+        fname = '{}_out.txt'.format(key.replace('/', '_over_'))
+        blade_data[key] = None
+        blade_txt += 'o\n{}\nw\n{}\n'.format(key, fname)
+
+    # prep XROTOR commands to save the solved operating point params
+    # op_fpath = os.path.join(get_prop_db(), '{}\\{}.xrop'.format(name, name))
+    # op_fpath = '{}\\{}.xrop'.format(name, name)
+    op_fpath = '{}.xrop'.format(name)
+    save_op_txt = 'oper\nwrit\n{}\n'.format(op_fpath)
+
+    # prep XROTOR commands for savename
+    # savename = os.path.join(get_prop_db(), '{}\\{}.xrr'.format(name, name))
+    # savename = '{}\\{}.xrr'.format(name, name)
+    savename = '{}.xrr'.format(name)
+    save_txt = 'save {}\nquit\n'.format(savename)
+
+    # write XROTOR commands to a file and run in a subprocess
+    xrotor_cmnd_file = os.path.join(get_prop_db(), 'xrotor_inputs_temp.txt')
+    cmnds = ['aero', 'read', '{}\n'.format(aero_params_fname),
+             'desi', 'atmo', '{}'.format(atmo_txt), 'form', '{}'.format(vorform_txt), 'N', '{}'.format(n_radial),
+             'inpu', '{}'.format(nblades),
+             '{}'.format(radius), '{}'.format(hub_radius), '{}'.format(hub_wake_disp_br), '{}'.format(design_speed),
+             '{}'.format(adv_rpm_txt), '{}'.format(thr_pow_txt), '0', '{}'.format(cl_txt), '{}'.format(blade_txt), '\n',
+             '{}'.format(save_op_txt), '\n\n', '{}'.format(save_txt)]
+
+    with open(xrotor_cmnd_file, 'w') as f:
+        f.write('\n'.join(cmnds))
+
+    xrotor_fpath = os.path.join(get_prop_db(), 'xrotor.exe')
+    old_cwd = os.getcwd()
+    os.chdir(os.path.join(get_prop_db(), name))
+    with open(xrotor_cmnd_file, 'r') as f:
+        sui = subprocess.STARTUPINFO()
+        if hide_windows:
+            sui.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+        if not verbose:
+            Info('Running XROTOR to create new geometry...')
+        subprocess.run([xrotor_fpath], startupinfo=sui, stdin=f, #stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT,
+                       timeout=tmout)
+    os.chdir(old_cwd)
+    os.remove(xrotor_cmnd_file)
+    os.remove(aero_params_fname)
+
+    # set the prop's blade-data that we just saved in creation
+    for key in blade_data.copy():
+        fp = os.path.join(get_prop_db(), '{}\\{}_out.txt'.format(name, key.replace('/', '_over_')))
+        roR, array = read_2col_file(fpath=fp)
+        if 'r/R' not in blade_data:
+            blade_data['r/R'] = roR
+        blade_data[key] = array
+    prop.set_blade_data(blade_dict=blade_data)
+
+    # interpolate the profiles as part of geometry creation
+    if 'n_prof_pts' not in geo_params:
+        geo_params['n_prof_pts'] = None
+    if 'n_profs' not in geo_params:
+        geo_params['n_profs'] = 50
+    if 'tot_skew' not in geo_params:
+        geo_params['tot_skew'] = 0.0
+
+    prop.interp_foil_profiles(**geo_params)  # also saves the profiles
+
+    # save the PDT propeller meta-file, and then read in the operating point dictionary by calling load_from_savefile()
+    prop.save_meta_file()
+    prop.load_from_savefile()   # reads meta, xrr, xrop, and point clouds
+
+    if not verbose:
+        Info('"{}" Geometry Created!'.format(prop.name))
+    if plot_after:
+        prop.plot_geometry()
+
+    return prop
 
 
 def write_blade_cl_file(r_pts: list, cl_pts: list, savepath: str = None):

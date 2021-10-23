@@ -1,5 +1,6 @@
 import sys
 import os
+from propeller_design_tools.user_io import Error
 
 
 def set_airfoil_database(path: str):
@@ -10,6 +11,21 @@ def set_airfoil_database(path: str):
 def set_propeller_database(path: str):
     _save_settings({'propeller_database': path})
     return
+
+
+def get_prop_db():
+    return _get_user_settings()['propeller_database']
+
+
+def get_foil_db():
+    return _get_user_settings()['airfoil_database']
+
+
+def get_setting(s: str):
+    if s not in _get_user_settings():
+        raise Error('"" is not a known PDT setting'.format(s))
+    else:
+        return _get_user_settings()[s]
 
 
 def _get_env_dir():

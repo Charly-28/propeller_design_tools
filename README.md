@@ -54,9 +54,12 @@ XFOIL and XROTOR executables
 ----------------------------
 In order to utilize any PDT functionality that depends on 
 running XFOIL, the "xfoil.exe" executable file needs to be
-in the user-set "airfoil_database" location.
+in the user-set "airfoil_database" location. 
+
+[XFOIL executable and docs](https://web.mit.edu/drela/Public/web/xfoil/)
 
 Likewise, in order to utilize any PDT functionality that
 depends on running XROTOR, the "xrotor.exe" executable file
 needs to be in the user-set "propeller_database" location.
 
+[XROTOR executable and docs](http://www.esotec.org/sw/crotor.html#download)
