@@ -23,7 +23,8 @@ usage of both XFOIL and XROTOR while implementing its own
 unique python3.7-native algorithms to maintain local
 input files, meta files, databases, and results files and
 weave everything together for the user in a simple,
-meaningful way.
+meaningful way to aid in the initial / investigatory 
+stage of well-behaved propeller designs.
 
 Getting Started
 ===============
