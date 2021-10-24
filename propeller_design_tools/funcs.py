@@ -539,11 +539,11 @@ def calc_re(rho: float = None, vel: float = None, chord: float = None, mu: float
 
 def create_radial_stations(prop: Propeller, plot_also: bool = True, verbose: bool = False):
     # get density for Re estimates
-    if prop.design_atmo_props['altitude'] == -1:
+    if prop.design_atmo_props['altitude_km'] == -1:
         rho, nu = 1000, 0.1150e-5
         mu = nu * rho
     else:
-        atmo = standard_atmosphere(prop.design_atmo_props['altitude'])# temp, p, rho, sonic_a, mu
+        atmo = standard_atmosphere(prop.design_atmo_props['altitude_km'])# temp, p, rho, sonic_a, mu
         mu, rho = atmo['mu'], atmo['rho']
         nu = mu / rho
 
@@ -571,14 +571,14 @@ def create_propeller(name: str, nblades: int, radius: float, hub_radius: float, 
                      station_params: dict = None, design_adv: float = None, design_rpm: float = None,
                      design_thrust: float = None, design_power: float = None, n_radial: int = 50,
                      verbose: bool = False, show_station_fit_plots: bool = True, plot_after: bool = True,
-                     tmout: int = 20, hide_windows: bool = True, geo_params: dict = {}):
+                     tmout: int = 30, hide_windows: bool = True, geo_params: dict = {}):
     # name must be less than 38? characters for XROTOR to be able to save it
     if len(name) > 38:
         raise Error('"name" must be less than 38 characters when creating a propeller, "{}" is too long'.format(name))
 
     # must input an altitude in atmo props
-    if 'altitude' not in design_atmo_props:
-        raise Error('You must include "altitude" as an input to create_propeller()')
+    if 'altitude_km' not in design_atmo_props:
+        raise Error('You must include "altitude_km" as an input to create_propeller()')
 
     # delete if exists already, make save folder, point-cloud folder
     save_folder = os.path.join(get_prop_db(), name)
@@ -604,7 +604,7 @@ def create_propeller(name: str, nblades: int, radius: float, hub_radius: float, 
         f.write(st_txt)
 
     # prep XROTOR commands depending on what design_atmo_props were given
-    alt = design_atmo_props['altitude']
+    alt = design_atmo_props['altitude_km']
     atmo_txt = '{}\n\n'.format(alt)
 
     if 'vsou' in design_atmo_props:
