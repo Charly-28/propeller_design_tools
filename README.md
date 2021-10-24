@@ -83,16 +83,31 @@ populate database data for the desired foil sections -> see
    https://github.com/helloDestroyerOfWorlds/propeller_design_tools/blob/master/tests/example1_airfoil_analysis.py
    )
 
+   ![ex1-1.png](https://github.com/helloDestroyerOfWorlds/propeller_design_tools/blob/master/tests/ex1-1.png)
+   ![ex1-2.png](https://github.com/helloDestroyerOfWorlds/propeller_design_tools/blob/master/tests/ex1-2.png)
+
 3. Once the required 2D airfoil data is generated, PDT can then be used
 to automatically generate all the required 2D foil definition parameters
-required by XROTOR (which essentially allow XROTOR to model the
+required by XROTOR -> see
+[example2_radialstation_creation.py](
+   https://github.com/helloDestroyerOfWorlds/propeller_design_tools/blob/master/tests/example2_radialstation_creation.py
+   )
+(which essentially allow XROTOR to model the
 performance of well-behaved, arbitrarily-lofted blade geometries) -> see
 [example3_prop_creation.py](
    https://github.com/helloDestroyerOfWorlds/propeller_design_tools/blob/master/tests/example3_prop_creation.py
    )
 
-4. PDT Propeller() object instances can generate 3D geometry files 
+4. PDT's Propeller() object instances can generate 3D geometry files 
 including profle xyz coordinate listings, and .stl 3D geometry files -> see
 [example4_stl_generation.py](
    https://github.com/helloDestroyerOfWorlds/propeller_design_tools/blob/master/tests/example4_stl_generation.py
    )
+
+5. **WIP** Prop analysis (integrating XROTOR's sweeps commands and displaying 
+outputs)
+
+6. **WIP** Prop optimization (grid-search style generic optimizer for "optimal"
+prop design generation by means of maximizing or minimizing a given output / 
+calculated metric based on outputs, optionally taking into account different
+propeller operating points via the ability to define the propeller's "duty-cycle")
