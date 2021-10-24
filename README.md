@@ -80,7 +80,7 @@ the PDT package):
 2. Use PDT to run XFOIL across ranges of Reynolds Numbers in order to
 populate database data for the desired foil sections -> see 
 [example1_airfoil_analysis.py](
-   tests/example1_airfoil_analysis.py
+   https://github.com/helloDestroyerOfWorlds/propeller_design_tools/blob/master/tests/example1_airfoil_analysis.py
    )
 
 3. Once the required 2D airfoil data is generated, PDT can then be used
@@ -88,5 +88,11 @@ to automatically generate all the required 2D foil definition parameters
 required by XROTOR (which essentially allow XROTOR to model the
 performance of well-behaved, arbitrarily-lofted blade geometries) -> see
 [example3_prop_creation.py](
-   tests/example3_prop_creation.py
+   https://github.com/helloDestroyerOfWorlds/propeller_design_tools/blob/master/tests/example3_prop_creation.py
+   )
+
+4. PDT Propeller() object instances can generate 3D geometry files 
+including profle xyz coordinate listings, and .stl 3D geometry files -> see
+[example4_stl_generation.py](
+   https://github.com/helloDestroyerOfWorlds/propeller_design_tools/blob/master/tests/example4_stl_generation.py
    )

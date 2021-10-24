@@ -7,6 +7,8 @@ High-Priority (soon)
 
 Backlog (med-priority)
 ----------------------
+* Is atmo_props['altitude'] input in km or m?
+* Determine best way to indicate all input paramter units & implement
 * _
 
 Wishlist (low-priority)
