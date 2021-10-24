@@ -3,7 +3,7 @@ PDT To-Do List
 High-Priority (soon)
 --------------------
 1. Make PDT create the user-set directories on setting if they don't exist yet
-2. Search for usages of Error without raise, and then just raise + any other error
+2. Make the main Propeller() plot number into Newtons/kW
 
 Backlog (med-priority)
 ----------------------

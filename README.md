@@ -84,8 +84,8 @@ populate database data for the desired foil sections -> see
    https://github.com/helloDestroyerOfWorlds/propeller_design_tools/blob/master/tests/example1_airfoil_analysis.py
    )
 
-   ![ex1-1.png](https://github.com/helloDestroyerOfWorlds/propeller_design_tools/blob/master/tests/ex1-1.png)
-   ![ex1-2.png](https://github.com/helloDestroyerOfWorlds/propeller_design_tools/blob/master/tests/ex1-2.png)
+   ![ex1-1.png](https://raw.githubusercontent.com/helloDestroyerOfWorlds/propeller_design_tools/master/tests/ex1-1.png)
+   ![ex1-2.png](https://raw.githubusercontent.com/helloDestroyerOfWorlds/propeller_design_tools/master/tests/ex1-2.png)
 
 
 3. Once the required 2D airfoil data is generated, PDT can then be used
@@ -97,7 +97,7 @@ blade geometries) -> see
    https://github.com/helloDestroyerOfWorlds/propeller_design_tools/blob/master/tests/example2_radialstation_creation.py
    )
 
-   ![ex2-1.png](https://github.com/helloDestroyerOfWorlds/propeller_design_tools/blob/master/tests/ex2-1.png)
+   ![ex2-1.png](https://raw.githubusercontent.com/helloDestroyerOfWorlds/propeller_design_tools/master/tests/ex2-1.png)
    
    But this step is also automated & displayed by PDT when the user uses
 the builtin PDT propeller creation function -> see
@@ -105,8 +105,8 @@ the builtin PDT propeller creation function -> see
    https://github.com/helloDestroyerOfWorlds/propeller_design_tools/blob/master/tests/example3_prop_creation.py
    )
 
-   ![ex3-1.png](https://github.com/helloDestroyerOfWorlds/propeller_design_tools/blob/master/tests/ex3-1.png)
-   ![ex3-2.png](https://github.com/helloDestroyerOfWorlds/propeller_design_tools/blob/master/tests/ex3-2.png)
+   ![ex3-1.png](https://raw.githubusercontent.com/helloDestroyerOfWorlds/propeller_design_tools/master/tests/ex3-1.png)
+   ![ex3-2.png](https://raw.githubusercontent.com/helloDestroyerOfWorlds/propeller_design_tools/master/tests/ex3-2.png)
 
 
 4. PDT's Propeller() object instances can generate 3D geometry files 
@@ -115,7 +115,7 @@ including profle xyz coordinate listings, and .stl 3D geometry files -> see
    https://github.com/helloDestroyerOfWorlds/propeller_design_tools/blob/master/tests/example4_stl_generation.py
    )
 
-   ![ex4-1.png](https://github.com/helloDestroyerOfWorlds/propeller_design_tools/blob/master/tests/ex4-1.png)
+   ![ex4-1.png](https://raw.githubusercontent.com/helloDestroyerOfWorlds/propeller_design_tools/master/tests/ex4-1.png)
 
 
 5. **WIP** Prop analysis (integrating XROTOR's sweeps commands and displaying 
