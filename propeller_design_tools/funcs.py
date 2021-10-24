@@ -63,7 +63,7 @@ def delete_files_from_folder(folder: str):
             if os.path.isfile(fpath):
                 os.remove(fpath)
     else:
-        raise FileExistsError('Cannot find folder: {}'.format(folder))
+        raise Error('Cannot find folder: {}'.format(folder))
 
 
 def search_files(folder: str, search_strs: list = None, contains_any: bool = False, include_dirs: bool = False):
@@ -78,7 +78,7 @@ def search_files(folder: str, search_strs: list = None, contains_any: bool = Fal
     """
 
     if not os.path.exists(folder):
-        raise FileExistsError('PDT ERROR: No folder named "{}" found!'.format(folder))
+        raise Error('PDT ERROR: No folder named "{}" found!'.format(folder))
 
     if include_dirs:
         files = os.listdir(folder)
@@ -272,15 +272,13 @@ def run_xfoil(foil_relpath: str, re: float, alpha: list = None, cl: list = None,
 
     # swept pacc param
     if alpha is not None and cl is not None:
-        print('Error: cannot give "run_xfoil" both "alpha" and "cl"')
-        return
+        raise Error('Cannot give "run_xfoil" both "alpha" and "cl"')
     elif alpha is not None:
         swept_param = {'alpha': alpha}
     elif cl is not None:
         swept_param = {'cl': cl}
     else:
-        print('Error: must give "run_xfoil" either a list of "alpha" to sweep or a list of "cl" to sweep')
-        return
+        raise Error('Must give "run_xfoil" either a list of "alpha" to sweep or a list of "cl" to sweep')
 
     # sort the swept values
     vals = list(sorted(list(swept_param.values())[0]))
@@ -371,7 +369,6 @@ def read_xfoil_pacc_file(fpath: str = None, delete_after: bool = False):
         del d[i]
 
     if [len(v) for v in d.values() if isinstance(v, list)][0] == 0:
-        # raise ValueError('XFOIL did not save any pacc data')
         return None
 
     # sort each variable based on alpha and re-assign to each dictionary key
@@ -450,7 +447,7 @@ def read_xrotor_op_file(fpath):
     with open(fpath, 'r') as f:
         txt = f.read()
     if '********** NOT CONVERGED **********' in txt:
-        Error('XROTOR did not converge')
+        raise Error('XROTOR did not converge')
     lines = txt.split('\n')
     d = {}
     headers = None
@@ -533,7 +530,7 @@ def calc_re(rho: float = None, vel: float = None, chord: float = None, mu: float
     elif all([i is not None for i in [rho, rpm, radius, chord, mu]]):
         re = rho * (rpm / 60 * 2 * np.pi) * radius * chord / mu
     else:
-        raise ValueError('PDT ERROR: Must input all of either [rho, vel, chord, mu] or [rho, rpm, radius, chord, mu]')
+        raise Error('Must input all of either [rho, vel, chord, mu] or [rho, rpm, radius, chord, mu]')
     return re
 
 
