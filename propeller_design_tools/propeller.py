@@ -13,7 +13,7 @@ from stl import mesh
 class Propeller(object):
 
     creation_attrs = {'nblades': int, 'radius': float, 'hub_radius': float, 'hub_wake_disp_br': float,
-                      'design_speed': float, 'design_adv': float, 'design_rpm': float, 'design_thrust': float,
+                      'design_speed_mps': float, 'design_adv': float, 'design_rpm': float, 'design_thrust': float,
                       'design_power': float, 'design_cl': dict, 'design_atmo_props': dict, 'design_vorform': str,
                       'station_params': dict, 'geo_params': dict}
     saveload_attrs = {**creation_attrs, **{'name': str, 'meta_file': str, 'xrr_file': str, 'xrop_file': str,
@@ -33,7 +33,7 @@ class Propeller(object):
         self.stl_fpath = os.path.join(self.save_folder, '{}.stl'.format(self.name))
 
         # initialize all attrs to None for script auto-completion detection
-        self.nblades, self.radius, self.hub_radius, self.hub_wake_disp_br, self.design_speed, self.design_adv, \
+        self.nblades, self.radius, self.hub_radius, self.hub_wake_disp_br, self.design_speed_mps, self.design_adv, \
         self.design_rpm, self.design_thrust, self.design_power, self.design_cl, self.design_atmo_props, \
         self.design_vorform, self.station_params, self.geo_params, self.xrotor_d, self.xrotor_op_dict, \
         self.blade_data, self.blade_xyz_profiles = [None] * 18
@@ -50,6 +50,31 @@ class Propeller(object):
                     setattr(self, key, val)
                 else:
                     raise Error('Unknown KWARG input "{}"'.format(key))
+
+    @property
+    def design_rho(self):
+        if 'dens' in self.design_atmo_props:
+            return self.design_atmo_props['dens']
+
+    @design_rho.setter
+    def design_rho(self, value):
+        self.design_atmo_props['dens'] = value
+
+    @property
+    def disk_area_m_sqrd(self):
+        if self.radius is not None and self.hub_radius is not None:
+            return np.pi * (self.radius ** 2 - self.hub_radius ** 2)
+
+    @property
+    def ideal_eff(self):
+        req_attrs = [self.design_thrust, self.design_rho, self.disk_area_m_sqrd, self.design_speed_mps]
+        if all([attr is not None for attr in req_attrs]):
+            return funcs.calc_ideal_eff(*req_attrs)
+
+    @property
+    def disk_loading(self):
+        if self.design_thrust is not None and self.disk_area_m_sqrd is not None:
+            return self.design_thrust / self.disk_area_m_sqrd
 
     def read_pdt_metafile(self):
         # read in the PDT meta-file (in the root propeller database) and set Propeller attrs
@@ -419,6 +444,11 @@ class Propeller(object):
             ax.text(x=0.5, y=0.5, s=txt2, ha='center', va='center', fontsize=12, fontweight='bold')
             ax.axis('off')
 
+            # disk loading metric
+            ax.text(x=-0.3, y=0.5, s='Disk Loading:\n\n\n\n\nNewtons / Meter^2', ha='center', va='center')
+            ax.text(x=-0.3, y=0.5, s='{:.3f}'.format(self.disk_loading), ha='center', va='center',
+                    fontsize=12, fontweight='bold')
+
         do_ax3d()
         do_txt_ax()
         do_radial_axes()
@@ -473,3 +503,7 @@ class Propeller(object):
         ax3d.add_collection3d(mplot3d.art3d.Poly3DCollection(self.stl_mesh.vectors))
         scale = self.stl_mesh.points.flatten()
         ax3d.auto_scale_xyz(scale, scale, scale)
+
+    def plot_ideal_eff(self):
+        Info('"{}" ideal efficiency: {:.1f}%'.format(self.name, self.ideal_eff))
+        return

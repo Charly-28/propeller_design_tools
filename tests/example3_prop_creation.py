@@ -10,7 +10,7 @@ prop = pdt.create_propeller(    # ALL UNITS IN BASE SI UNLESS OTHERWISE SPECIFIE
     radius=0.5,                 # tip radius from center of hub
     hub_radius=0.06,            # how big the hub?
     hub_wake_disp_br=0.06,      # how big the "hub-wake-displacement-body-radius" ... As far as I can find ...
-    design_speed=15,            # how fast you wanna go, normally
+    design_speed_mps=15,            # how fast you wanna go, normally
     design_cl={'const': 0.18},  # valid: either 'const' or BOTH 'root' & 'tip' (also 'file' maybe, you try it)
     design_atmo_props={'altitude_km': 5},  # valid: 'altitude_km', 'vsou', 'dens', 'visc' (altitude_km=-1 is underwater)
     design_vorform='vrtx',      # valid: either 'grad', 'pot', or 'vrtx' (type of solver for XROTOR to use)

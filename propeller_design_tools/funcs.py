@@ -443,7 +443,7 @@ def save_polar_data_file(polar_data: dict, savepath: str, name: str = None):
     return
 
 
-def read_xrotor_op_file(fpath):
+def read_xrotor_op_file(fpath: str):
     with open(fpath, 'r') as f:
         txt = f.read()
     if '********** NOT CONVERGED **********' in txt:
@@ -564,7 +564,7 @@ def create_radial_stations(prop: Propeller, plot_also: bool = True, verbose: boo
 
 
 def create_propeller(name: str, nblades: int, radius: float, hub_radius: float, hub_wake_disp_br: float,
-                     design_speed: float, design_cl: dict, design_atmo_props: dict, design_vorform: str,
+                     design_speed_mps: float, design_cl: dict, design_atmo_props: dict, design_vorform: str,
                      station_params: dict = None, design_adv: float = None, design_rpm: float = None,
                      design_thrust: float = None, design_power: float = None, n_radial: int = 50,
                      verbose: bool = False, show_station_fit_plots: bool = True, plot_after: bool = True,
@@ -589,7 +589,7 @@ def create_propeller(name: str, nblades: int, radius: float, hub_radius: float, 
 
     # create the Propeller object, create the stations
     prop = Propeller(name=name, nblades=nblades, radius=radius, hub_radius=hub_radius,
-                     hub_wake_disp_br=hub_wake_disp_br, design_speed=design_speed, design_cl=design_cl,
+                     hub_wake_disp_br=hub_wake_disp_br, design_speed_mps=design_speed_mps, design_cl=design_cl,
                      design_atmo_props=design_atmo_props, design_vorform=design_vorform, design_adv=design_adv,
                      station_params=station_params, geo_params=geo_params, design_rpm=design_rpm,
                      design_thrust=design_thrust, design_power=design_power)
@@ -683,7 +683,7 @@ def create_propeller(name: str, nblades: int, radius: float, hub_radius: float, 
     cmnds = ['aero', 'read', '{}\n'.format(aero_params_fname),
              'desi', 'atmo', '{}'.format(atmo_txt), 'form', '{}'.format(vorform_txt), 'N', '{}'.format(n_radial),
              'inpu', '{}'.format(nblades),
-             '{}'.format(radius), '{}'.format(hub_radius), '{}'.format(hub_wake_disp_br), '{}'.format(design_speed),
+             '{}'.format(radius), '{}'.format(hub_radius), '{}'.format(hub_wake_disp_br), '{}'.format(design_speed_mps),
              '{}'.format(adv_rpm_txt), '{}'.format(thr_pow_txt), '0', '{}'.format(cl_txt), '{}'.format(blade_txt), '\n',
              '{}'.format(save_op_txt), '\n\n', '{}'.format(save_txt)]
 
@@ -691,8 +691,6 @@ def create_propeller(name: str, nblades: int, radius: float, hub_radius: float, 
         f.write('\n'.join(cmnds))
 
     xrotor_fpath = os.path.join(get_prop_db(), 'xrotor.exe')
-    old_cwd = os.getcwd()
-    os.chdir(os.path.join(get_prop_db(), name))
     with open(xrotor_cmnd_file, 'r') as f:
         sui = subprocess.STARTUPINFO()
         if hide_windows:
@@ -700,8 +698,7 @@ def create_propeller(name: str, nblades: int, radius: float, hub_radius: float, 
         if not verbose:
             Info('Running XROTOR to create new geometry...')
         subprocess.run([xrotor_fpath], startupinfo=sui, stdin=f, #stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT,
-                       timeout=tmout)
-    os.chdir(old_cwd)
+                       timeout=tmout, cwd=os.path.join(get_prop_db(), name))
     os.remove(xrotor_cmnd_file)
     os.remove(aero_params_fname)
 
@@ -725,6 +722,12 @@ def create_propeller(name: str, nblades: int, radius: float, hub_radius: float, 
     prop.interp_foil_profiles(**geo_params)  # also saves the profiles
 
     # save the PDT propeller meta-file, and then read in the operating point dictionary by calling load_from_savefile()
+    prop.xrotor_op_dict = read_xrotor_op_file(prop.xrop_file)
+    if prop.design_thrust is None:
+        prop.design_thrust = prop.xrotor_op_dict['thrust(N)']
+    if prop.design_rho is None:
+        prop.design_rho = prop.xrotor_op_dict['rho(kg/m3)']
+
     prop.save_meta_file()
     prop.load_from_savefile()   # reads meta, xrr, xrop, and point clouds
 
@@ -833,6 +836,14 @@ def get_xrotor_re_scaling_exp(re: int):
 def calc_thrust(k_t, rho, rpm, dia):
     n = rpm / 60
     return k_t * rho * n ** 2 * dia ** 4
+
+
+def calc_ideal_eff(thrust: float, rho: float, a_disk: float, u_o: float):
+    T = thrust
+    rho = rho
+    A_disk = a_disk
+    u_o = u_o
+    return 100 * 2 / (1 + (T / (A_disk * 1 / 2 * rho * u_o ** 2) + 1) ** (1 / 2))
 
 
 # ===== GEOMETRY MANIPULATION =====
